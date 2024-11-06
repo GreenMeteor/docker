@@ -15,13 +15,19 @@ jobs:
     steps:
       - name: Check Docker daemon
         run: docker info || sudo service docker start
-        
+
       - name: Checkout code
         uses: actions/checkout@v4
-        
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3.7.1
-        
+
+      - name: Install Docker Compose
+        run: |
+          sudo curl -L "https://github.com/docker/compose/releases/download/v2.30.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          sudo chmod +x /usr/local/bin/docker-compose
+          docker-compose --version
+
       - name: Create test docker-compose file
         run: |
           cat > docker-compose.test.yml << 'EOF'
@@ -61,13 +67,13 @@ jobs:
             humhub_test_network:
               driver: bridge
           EOF
-          
+
       - name: Start containers
         run: |
           docker-compose -f docker-compose.test.yml up -d
           echo "Waiting for services to be ready..."
           timeout 60s bash -c 'until curl -s http://localhost:8080 > /dev/null; do sleep 1; done'
-        
+
       - name: Verify database connection
         run: |
           docker-compose -f docker-compose.test.yml exec -T db \
@@ -77,30 +83,30 @@ jobs:
         run: |
           docker-compose -f docker-compose.test.yml exec -T humhub php -v || echo "::error::PHP verification failed"
           docker-compose -f docker-compose.test.yml exec -T humhub apache2 -v || echo "::error::Apache verification failed"
-          
+
       - name: Verify HumHub files
         run: |
           docker-compose -f docker-compose.test.yml exec -T humhub ls /var/www/html/app || echo "::error::HumHub files verification failed"
           docker-compose -f docker-compose.test.yml exec -T humhub ls /var/www/html/app/protected/config || echo "::error::Config directory not found"
           docker-compose -f docker-compose.test.yml exec -T humhub ls /var/www/html/app/protected/modules || echo "::error::Modules directory not found"
           docker-compose -f docker-compose.test.yml exec -T humhub ls /var/www/html/app/protected || echo "::error::Protected directory not found"
-          
+
       - name: Verify cron service is running
         run: |
           docker-compose -f docker-compose.test.yml exec -T humhub service cron status || echo "::error::Cron service is not running"
-          
+
       - name: Verify crontab contents
         run: |
           docker-compose -f docker-compose.test.yml exec -T humhub cat /etc/cron.d/humhub-cron || echo "::error::Crontab is missing or not configured correctly"
-          
+
       - name: Run cron jobs manually for testing
         run: |
           docker-compose -f docker-compose.test.yml exec -T humhub cron -f &
-        
+
       - name: Show container logs
         if: always()
         run: docker-compose -f docker-compose.test.yml logs
-        
+
       - name: Cleanup
         if: always()
         run: |
