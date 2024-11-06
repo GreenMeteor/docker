@@ -32,41 +32,53 @@ jobs:
 
       - name: Start container
         id: start-container
-        run: docker run -d --name humhub-container humhub-test
+        run: docker run -d --name humhub-app humhub-test
 
       - name: Wait for container to start
-        run: sleep 10
+        run: |
+          echo "Waiting for container to be fully up..."
+          # Wait up to 30 seconds for the container to be fully up and running
+          for i in {1..30}; do
+            if docker exec humhub-app mysql -u root -prootpassword -e "SELECT 1" &> /dev/null; then
+              echo "Database is ready"
+              break
+            else
+              echo "Waiting for MySQL to be ready..."
+              sleep 5
+            fi
+          done
+        continue-on-error: false  # Fail if the container isn't ready in time
 
       - name: Create a temporary test database
         run: |
-          docker exec humhub-container mysql -u root -prootpassword -e "CREATE DATABASE IF NOT EXISTS humhub_test;"
-          docker exec humhub-container mysql -u root -prootpassword -e "GRANT ALL PRIVILEGES ON humhub_test.* TO 'humhubuser'@'%' IDENTIFIED BY 'humhubpassword';"
-          docker exec humhub-container mysql -u root -prootpassword -e "FLUSH PRIVILEGES;"
+          docker exec humhub-app mysql -u root -prootpassword -e "CREATE DATABASE IF NOT EXISTS humhub_test;"
+          docker exec humhub-app mysql -u root -prootpassword -e "GRANT ALL PRIVILEGES ON humhub_test.* TO 'humhubuser'@'%' IDENTIFIED BY 'humhubpassword';"
+          docker exec humhub-app mysql -u root -prootpassword -e "FLUSH PRIVILEGES;"
 
       - name: Verify Docker image and Check PHP and Apache status
         run: |
-          docker exec humhub-container php -v || echo "::error::PHP verification failed"
-          docker exec humhub-container apache2 -v || echo "::error::Apache verification failed"
+          docker exec humhub-app php -v || echo "::error::PHP verification failed"
+          docker exec humhub-app apache2 -v || echo "::error::Apache verification failed"
 
       - name: Verify HumHub files
         run: |
-          docker exec humhub-container ls /var/www/html/app || echo "::error::HumHub files verification failed"
-          docker exec humhub-container ls /var/www/html/app/protected/config || echo "::error::Config directory not found"
-          docker exec humhub-container ls /var/www/html/app/protected/modules || echo "::error::Modules directory not found"
-          docker exec humhub-container ls /var/www/html/app/protected || echo "::error::Protected directory not found"
+          docker exec humhub-app ls /var/www/html/app || echo "::error::HumHub files verification failed"
+          docker exec humhub-app ls /var/www/html/app/protected/config || echo "::error::Config directory not found"
+          docker exec humhub-app ls /var/www/html/app/protected/modules || echo "::error::Modules directory not found"
+          docker exec humhub-app ls /var/www/html/app/protected || echo "::error::Protected directory not found"
 
       - name: Verify cron service is running
         run: |
-          docker exec humhub-container service cron status || echo "::error::Cron service is not running"
+          docker exec humhub-app service cron status || echo "::error::Cron service is not running"
 
       - name: Verify crontab contents
         run: |
-          docker exec humhub-container cat /etc/cron.d/humhub-cron || echo "::error::Crontab is missing or not configured correctly"
+          docker exec humhub-app cat /etc/cron.d/humhub-cron || echo "::error::Crontab is missing or not configured correctly"
 
       - name: Run cron jobs manually for testing
         run: docker exec humhub-container cron -f &
 
       - name: Cleanup
         run: |
-          docker stop humhub-container || true
-          docker rm humhub-container || true
+          docker stop humhub-app || true
+          docker rm humhub-app || true
