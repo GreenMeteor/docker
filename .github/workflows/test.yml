@@ -76,8 +76,8 @@ jobs:
 
       - name: Grant MySQL privileges
         run: |
-          docker-compose -f docker-compose.test.yml exec -T db mysql -u root -prootpassword -e "CREATE USER IF NOT EXISTS 'humhubuser'@'%' IDENTIFIED BY 'humhubpassword';"
-          docker-compose -f docker-compose.test.yml exec -T db mysql -u root -prootpassword -e "GRANT ALL PRIVILEGES ON humhub_test.* TO 'humhubuser'@'%'; FLUSH PRIVILEGES;"
+          docker-compose -f docker-compose.test.yml exec -T db bash -c "mysql -u root -prootpassword -e \"CREATE USER IF NOT EXISTS 'humhubuser'@'%' IDENTIFIED BY 'humhubpassword';\""
+          docker-compose -f docker-compose.test.yml exec -T db bash -c "mysql -u root -prootpassword -e \"GRANT ALL PRIVILEGES ON humhub_test.* TO 'humhubuser'@'%'; FLUSH PRIVILEGES;\""
 
       - name: Verify database connection
         run: |
