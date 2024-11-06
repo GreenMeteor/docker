@@ -1,5 +1,5 @@
 # Use a specific FrankenPHP image with PHP 8.3 and Debian Bookworm variant
-FROM dunglas/frankenphp:1.3-php8.3-bookworm
+FROM dunglas/frankenphp-dev:latest
 
 # Set the working directory for HumHub
 WORKDIR /var/www/html
