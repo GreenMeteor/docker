@@ -4,7 +4,7 @@ FROM dunglas/frankenphp:1.3-php8.3-bookworm
 # Set the working directory for HumHub
 WORKDIR /var/www/html
 
-# Install system dependencies required by PHP extensions and HumHub
+# Install system dependencies required by PHP extensions, cron, and HumHub
 RUN apt-get update && apt-get install -y \
     git \
     unzip \
@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install -y \
     libicu-dev \
     libmagickcore-dev \
     libmagickwand-dev \
+    cron \
     && rm -rf /var/lib/apt/lists/*
 
 # Install the necessary PHP extensions for HumHub
@@ -52,8 +53,12 @@ RUN mkdir -p /var/www/html/app && \
 # Set proper file permissions for HumHub
 RUN chown -R www-data:www-data /var/www/html/app && chmod -R 775 /var/www/html/app
 
+# Copy and set up cron job
+COPY src/crontab /etc/cron.d/humhub-cron
+RUN chmod 0644 /etc/cron.d/humhub-cron && crontab /etc/cron.d/humhub-cron
+
 # Expose port 8080 for HTTP access
 EXPOSE 8080
 
-# Set the entrypoint to start the FrankenPHP web server
-CMD ["frankenphp", "/var/www/html/app/index.php"]
+# Start cron service and FrankenPHP web server
+CMD service cron start && frankenphp /var/www/html/app/index.php
