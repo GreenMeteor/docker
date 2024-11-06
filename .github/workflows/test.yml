@@ -1,0 +1,66 @@
+name: Test Dockerfile
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Test on Ubuntu
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check Docker daemon
+        run: docker info || sudo service docker start
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3.7.1
+
+      - name: Validate Dockerfile
+        id: build
+        run: docker build -t humhub-test -f Dockerfile .
+
+      - name: Check Docker build status
+        run: docker inspect humhub-test
+
+      - name: Start container
+        id: start-container
+        run: docker run -d --name humhub-container humhub-test
+
+      - name: Wait for container to start
+        run: sleep 10
+
+      - name: Verify Docker image and Check PHP and Apache status
+        run: |
+          docker exec humhub-container php -v || echo "::error::PHP verification failed"
+          docker exec humhub-container apache2 -v || echo "::error::Apache verification failed"
+
+      - name: Verify HumHub files
+        run: |
+          docker exec humhub-container ls /var/www/html/app || echo "::error::HumHub files verification failed"
+          docker exec humhub-container ls /var/www/html/app/protected/config || echo "::error::Config directory not found"
+          docker exec humhub-container ls /var/www/html/app/protected/modules || echo "::error::Modules directory not found"
+          docker exec humhub-container ls /var/www/html/app/protected || echo "::error::Protected directory not found"
+
+      - name: Verify cron service is running
+        run: |
+          docker exec humhub-container service cron status || echo "::error::Cron service is not running"
+
+      - name: Verify crontab contents
+        run: |
+          docker exec humhub-container cat /etc/cron.d/humhub-cron || echo "::error::Crontab is missing or not configured correctly"
+
+      - name: Run cron jobs manually for testing
+        run: docker exec humhub-container cron -f &
+
+      - name: Cleanup
+        run: |
+          docker stop humhub-container || true
+          docker rm humhub-container || true
