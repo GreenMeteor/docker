@@ -8,6 +8,7 @@ WORKDIR /var/www/html
 RUN apt-get update && apt-get install -y \
     git \
     unzip \
+    curl \
     libpng-dev \
     libjpeg-dev \
     libfreetype6-dev \
@@ -39,14 +40,20 @@ RUN apt-get update && apt-get install -y \
     graphicsmagick \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy HumHub application files into the container
-COPY . /var/www/html
+# Download the HumHub zip file
+RUN curl -L https://download.humhub.com/downloads/install/humhub-1.17.0-beta.1.zip -o humhub.zip
+
+# Create the app/ directory and extract the HumHub zip into it
+RUN mkdir -p /var/www/html/app && \
+    unzip -q humhub.zip -d humhub_temp && \
+    mv humhub_temp/humhub-1.17.0-beta.1/* /var/www/html/app/ && \
+    rm -rf humhub_temp humhub.zip
 
 # Set proper file permissions for HumHub
-RUN chown -R www-data:www-data /var/www/html && chmod -R 775 /var/www/html
+RUN chown -R www-data:www-data /var/www/html/app && chmod -R 775 /var/www/html/app
 
 # Expose port 8080 for HTTP access
 EXPOSE 8080
 
 # Set the entrypoint to start the FrankenPHP web server
-CMD ["frankenphp", "/var/www/html/index.php"]
+CMD ["frankenphp", "/var/www/html/app/index.php"]
