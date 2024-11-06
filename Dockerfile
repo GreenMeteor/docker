@@ -54,7 +54,7 @@ RUN mkdir -p /var/www/html/app && \
 RUN chown -R www-data:www-data /var/www/html/app && chmod -R 775 /var/www/html/app
 
 # Copy and set up cron job
-COPY src/crontab /etc/cron.d/humhub-cron
+COPY crontab /etc/cron.d/humhub-cron
 RUN chmod 0644 /etc/cron.d/humhub-cron && crontab /etc/cron.d/humhub-cron
 
 # Expose port 8080 for HTTP access
