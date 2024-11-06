@@ -1,9 +1,0 @@
-{
-    "id": "wall",
-    "name": "Wall",
-    "description": "Wall Core",
-    "keywords": [
-        "core"
-    ],
-    "version": "1.0"
-}

@@ -1,9 +1,0 @@
-{
-    "id": "comment",
-    "name": "Comment",
-    "description": "Comments Core",
-    "keywords": [
-        "core"
-    ],
-    "version": "1.0"
-}
