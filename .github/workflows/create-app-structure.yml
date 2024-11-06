@@ -36,6 +36,9 @@ jobs:
         # Unzip the package into a temporary directory
         unzip -q humhub.zip -d humhub_temp
         
+        # Ensure the app/ directory exists before moving files
+        mkdir -p app
+
         # Move all contents from the extracted 'humhub-1.17.0-beta.1' directory into 'app/'
         mv humhub_temp/humhub-1.17.0-beta.1/* app/
 
