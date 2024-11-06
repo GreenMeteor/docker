@@ -1,0 +1,33 @@
+version: "3.8"
+services:
+  humhub:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/var/www/html
+    environment:
+      - PHP_MEMORY_LIMIT=512M
+      - PHP_MAX_EXECUTION_TIME=300
+      - HUMHUB_DB_HOST=db
+      - HUMHUB_DB_NAME=humhub
+      - HUMHUB_DB_USER=humhubuser
+      - HUMHUB_DB_PASSWORD=humhubpassword
+    depends_on:
+      - db
+    networks:
+      - humhub_network
+
+  db:
+    image: mysql:8
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: humhub
+      MYSQL_USER: humhubuser
+      MYSQL_PASSWORD: humhubpassword
+    networks:
+      - humhub_network
+
+networks:
+  humhub_network:
+    driver: bridge
