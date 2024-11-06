@@ -33,10 +33,14 @@ jobs:
         # Download HumHub zip file from the official site
         curl -L https://download.humhub.com/downloads/install/humhub-1.17.0-beta.1.zip -o humhub.zip
 
-        # Unzip the package into the 'app' directory (preserving the HumHub structure)
-        unzip -q humhub.zip -d app/
+        # Unzip the package into a temporary directory
+        unzip -q humhub.zip -d humhub_temp
         
-        # Remove the zip file after extraction
+        # Move all contents from the extracted 'humhub-1.17.0-beta.1' directory into 'app/'
+        mv humhub_temp/humhub-1.17.0-beta.1/* app/
+
+        # Clean up by removing the temporary folder and the zip file
+        rm -rf humhub_temp
         rm humhub.zip
 
     - name: Output the directory structure
@@ -53,7 +57,7 @@ jobs:
         
         # Add and commit any changes (including the unzipped HumHub content)
         git add app/
-        git commit -m "Unzip HumHub files into app/" || echo "No changes to commit"
+        git commit -m "Unzip HumHub files directly into app/" || echo "No changes to commit"
         
         # Push the changes to the repository
         git push origin main
