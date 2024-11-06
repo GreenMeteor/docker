@@ -1,0 +1,22 @@
+# Docker related
+*.log
+*.pid
+.docker/
+.dockerignore
+docker-compose.override.yml
+**/vendor/
+
+# Node and NPM related
+node_modules/
+dist/
+build/
+
+# Composer related
+vendor/
+
+# IDE/Editor related
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.DS_Store
