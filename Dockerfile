@@ -4,7 +4,7 @@ FROM dunglas/frankenphp-dev:latest
 # Set the working directory for HumHub
 WORKDIR /var/www/html
 
-# Install system dependencies required by PHP extensions, cron, and HumHub
+# Install system dependencies required by PHP extensions and HumHub
 RUN apt-get update && apt-get install -y \
     git \
     unzip \
@@ -19,6 +19,7 @@ RUN apt-get update && apt-get install -y \
     libmagickcore-dev \
     libmagickwand-dev \
     cron \
+    apache2 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install the necessary PHP extensions for HumHub
@@ -57,8 +58,11 @@ RUN chown -R www-data:www-data /var/www/html/app && chmod -R 775 /var/www/html/a
 COPY crontab /etc/cron.d/humhub-cron
 RUN chmod 0644 /etc/cron.d/humhub-cron && crontab /etc/cron.d/humhub-cron
 
+# Set proper file permissions for HumHub
+RUN chown -R www-data:www-data /var/www/html/app && chmod -R 775 /var/www/html/app
+
 # Expose port 8080 for HTTP access
 EXPOSE 8080
 
-# Start cron service and FrankenPHP web server
-CMD service cron start && frankenphp /var/www/html/app/index.php
+# Start the cron service and Apache server (or FrankenPHP)
+CMD service cron start && service apache2 start && frankenphp /var/www/html/app/index.php
