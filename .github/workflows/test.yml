@@ -31,7 +31,6 @@ jobs:
       - name: Create test docker-compose file
         run: |
           cat > docker-compose.test.yml << 'EOF'
-          version: "3.8"
           services:
             humhub:
               build: .
