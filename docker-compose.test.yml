@@ -1,0 +1,43 @@
+version: "3.8"
+services:
+  humhub:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - PHP_MEMORY_LIMIT=512M
+      - PHP_MAX_EXECUTION_TIME=300
+      - HUMHUB_DB_HOST=db
+      - HUMHUB_DB_NAME=humhub_test
+      - HUMHUB_DB_USER=humhubuser
+      - HUMHUB_DB_PASSWORD=humhubpassword
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - humhub_test_network
+
+  db:
+    image: mysql:8
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: humhub_test
+      MYSQL_USER: humhubuser
+      MYSQL_PASSWORD: humhubpassword
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "humhubuser", "-phumhubpassword"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    networks:
+      - humhub_test_network
+
+networks:
+  humhub_test_network:
+    driver: bridge
