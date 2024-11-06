@@ -55,12 +55,6 @@ jobs:
                 MYSQL_DATABASE: humhub_test
                 MYSQL_USER: humhubuser
                 MYSQL_PASSWORD: humhubpassword
-              command:
-                [
-                  "--default-authentication-plugin=mysql_native_password",
-                  "--skip-networking=0",
-                  "--skip-bind-address"
-                ]
               healthcheck:
                 test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "humhubuser", "-phumhubpassword"]
                 interval: 5s
@@ -79,10 +73,10 @@ jobs:
           echo "Waiting for MySQL to be ready..."
           timeout 60s bash -c 'until docker-compose -f docker-compose.test.yml exec -T db mysqladmin -u root -prootpassword ping; do sleep 1; done'
 
-      - name: Grant MySQL privileges
+      - name: Grant MySQL privileges and Set Authentication Plugin
         run: |
           RETRIES=5
-          until docker-compose -f docker-compose.test.yml exec -T db mysql -u root -prootpassword -e "CREATE USER IF NOT EXISTS 'humhubuser'@'%' IDENTIFIED BY 'humhubpassword';" || [ $RETRIES -eq 0 ]; do
+          until docker-compose -f docker-compose.test.yml exec -T db mysql -u root -prootpassword -e "CREATE USER IF NOT EXISTS 'humhubuser'@'%' IDENTIFIED WITH 'mysql_native_password' BY 'humhubpassword';" || [ $RETRIES -eq 0 ]; do
             echo "Retrying MySQL user creation..."
             ((RETRIES--))
             sleep 5
