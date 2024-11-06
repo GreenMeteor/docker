@@ -74,6 +74,10 @@ jobs:
           echo "Waiting for MySQL to be ready..."
           timeout 60s bash -c 'until docker-compose -f docker-compose.test.yml exec -T db mysqladmin -u root -prootpassword ping; do sleep 1; done'
 
+      - name: Grant MySQL privileges
+        run: |
+          docker-compose -f docker-compose.test.yml exec -T db mysql -u root -prootpassword -e "GRANT ALL PRIVILEGES ON humhub_test.* TO 'humhubuser'@'%' IDENTIFIED BY 'humhubpassword'; FLUSH PRIVILEGES;"
+
       - name: Verify database connection
         run: |
           docker-compose -f docker-compose.test.yml exec -T db \
