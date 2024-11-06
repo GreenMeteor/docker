@@ -17,48 +17,43 @@ jobs:
     permissions:
       contents: write
       actions: read
+
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
-    - name: Install tree command
-      run: sudo apt-get install -y tree
-
-    - name: Create app directories and files
+    - name: Install dependencies
       run: |
-        # Create directories
-        mkdir -p app/{config,modules,protected/runtime,static,protected/vendor}
+        # Install curl and unzip to handle the HumHub package download and extraction
+        sudo apt-get update
+        sudo apt-get install -y curl unzip
 
-        # Create basic configuration files
-        touch app/.env app/config/db.php app/config/web.php
+    - name: Download and unzip HumHub
+      run: |
+        # Download HumHub zip file from the official site
+        curl -L https://download.humhub.com/downloads/install/humhub-1.17.0-beta.1.zip -o humhub.zip
 
-        # Create basic module and protected files
-        mkdir -p app/modules/custom_module
-        touch app/modules/custom_module/Module.php
+        # Unzip the package into the 'app' directory (preserving the HumHub structure)
+        unzip -q humhub.zip -d app/
+        
+        # Remove the zip file after extraction
+        rm humhub.zip
 
-        mkdir -p app/protected/controllers
-        touch app/protected/controllers/IndexController.php
-
-        mkdir -p app/protected/models
-        touch app/protected/models/User.php
-
-        mkdir -p app/protected/views/site
-        touch app/protected/views/site/index.php
-
-        # Create static directories for assets
-        mkdir -p app/static/css app/static/js app/static/images
-
-        # Create vendor file (it will be populated later by Composer)
-        touch app/protected/vendor/.gitkeep
-
-        # Output structure for confirmation
+    - name: Output the directory structure
+      run: |
+        # Output the structure of the 'app/' directory for confirmation
         echo "App structure created successfully"
         tree app/
 
     - name: Commit and push changes (if any)
       run: |
+        # Configure git user
         git config --global user.name "GitHub Actions"
         git config --global user.email "actions@github.com"
+        
+        # Add and commit any changes (including the unzipped HumHub content)
         git add app/
-        git commit -m "Create initial app structure" || echo "No changes to commit"
+        git commit -m "Unzip HumHub files into app/" || echo "No changes to commit"
+        
+        # Push the changes to the repository
         git push origin main
