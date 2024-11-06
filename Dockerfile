@@ -51,18 +51,24 @@ RUN mkdir -p /var/www/html/app && \
     mv humhub_temp/humhub-1.17.0-beta.1/* /var/www/html/app/ && \
     rm -rf humhub_temp humhub.zip
 
-# Set proper file permissions for HumHub
-RUN chown -R www-data:www-data /var/www/html/app && chmod -R 775 /var/www/html/app
+# Create a non-root user for running the container
+RUN useradd -m -d /home/humhubuser -s /bin/bash humhubuser
+
+# Set proper ownership for HumHub files to the non-root user
+RUN chown -R humhubuser:humhubuser /var/www/html/app && chmod -R 775 /var/www/html/app
 
 # Copy and set up cron job
 COPY crontab /etc/cron.d/humhub-cron
 RUN chmod 0644 /etc/cron.d/humhub-cron && crontab /etc/cron.d/humhub-cron
 
-# Set proper file permissions for HumHub
-RUN chown -R www-data:www-data /var/www/html/app && chmod -R 775 /var/www/html/app
+# Set proper file permissions for HumHub (if necessary)
+RUN chown -R humhubuser:humhubuser /var/www/html/app && chmod -R 775 /var/www/html/app
 
 # Expose port 8080 for HTTP access
 EXPOSE 8080
 
-# Start the cron service and Apache server (or FrankenPHP)
-CMD service cron start && service apache2 start && frankenphp /var/www/html/app/index.php
+# Switch to the non-root user
+USER humhubuser
+
+# Start the cron service, Apache server, and FrankenPHP
+CMD ["sh", "-c", "service cron start && service apache2 start && frankenphp /var/www/html/app/index.php"]
