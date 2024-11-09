@@ -1,6 +1,9 @@
 # Use a specific FrankenPHP image with PHP 8.3 and Debian Bookworm variant
 FROM dunglas/frankenphp-dev:latest
 
+# Use tini as an entrypoint for better process management
+RUN apt-get update && apt-get install -y tini && apt-get clean
+
 # Set the working directory for HumHub
 WORKDIR /var/www/html
 
@@ -51,28 +54,26 @@ RUN mkdir -p /var/www/html/app && \
     mv humhub_temp/humhub-1.17.0-beta.1/* /var/www/html/app/ && \
     rm -rf humhub_temp humhub.zip
 
-# Create a non-root user for running the container
-RUN useradd -m -d /home/humhubuser -s /bin/bash humhubuser
+# Create necessary directories for Apache, Cron, and other dependencies
+RUN mkdir -p /var/run/apache2 /var/run/cron /var/www/html/app/config /var/www/html/app/modules /var/www/html/app/protected
 
-# Set proper ownership for HumHub files to the non-root user
-RUN chown -R humhubuser:humhubuser /var/www/html/app && chmod -R 775 /var/www/html/app
-
-# Prepare run directories for Apache and Cron services
-RUN mkdir -p /var/run/apache2 && chown -R humhubuser:humhubuser /var/run/apache2 && \
-    mkdir -p /var/run && chown -R humhubuser:humhubuser /var/run
+# Set ownership for all HumHub files to a non-root user
+RUN useradd -m -d /home/humhubuser -s /bin/bash humhubuser && \
+    chown -R humhubuser:humhubuser /var/www/html/app /var/run/apache2 /var/run/cron && \
+    chmod -R 775 /var/www/html/app
 
 # Copy and set up cron job
 COPY crontab /etc/cron.d/humhub-cron
 RUN chmod 0644 /etc/cron.d/humhub-cron && crontab /etc/cron.d/humhub-cron
-
-# Set proper file permissions for HumHub
-RUN chown -R humhubuser:humhubuser /var/www/html/app && chmod -R 775 /var/www/html/app
 
 # Expose port 8080 for HTTP access
 EXPOSE 8080
 
 # Switch to the non-root user
 USER humhubuser
+
+# Use tini as the entry point to manage processes
+ENTRYPOINT ["/usr/bin/tini", "--"]
 
 # Start the cron service, Apache server, and FrankenPHP
 CMD ["sh", "-c", "service cron start && service apache2 start && frankenphp /var/www/html/app/index.php"]
