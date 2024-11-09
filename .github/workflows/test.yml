@@ -31,7 +31,6 @@ jobs:
       - name: Create test docker-compose file
         run: |
           cat > docker-compose.test.yml << 'EOF'
-          version: '3.9'
           services:
             humhub:
               build: .
@@ -45,8 +44,7 @@ jobs:
                 - HUMHUB_DB_USER=humhubuser
                 - HUMHUB_DB_PASSWORD=humhubpassword
               depends_on:
-                db:
-                  condition: service_healthy
+                - db
               networks:
                 - humhub_test_network
             db:
