@@ -57,11 +57,15 @@ RUN useradd -m -d /home/humhubuser -s /bin/bash humhubuser
 # Set proper ownership for HumHub files to the non-root user
 RUN chown -R humhubuser:humhubuser /var/www/html/app && chmod -R 775 /var/www/html/app
 
+# Prepare run directories for Apache and Cron services
+RUN mkdir -p /var/run/apache2 && chown -R humhubuser:humhubuser /var/run/apache2 && \
+    mkdir -p /var/run && chown -R humhubuser:humhubuser /var/run
+
 # Copy and set up cron job
 COPY crontab /etc/cron.d/humhub-cron
 RUN chmod 0644 /etc/cron.d/humhub-cron && crontab /etc/cron.d/humhub-cron
 
-# Set proper file permissions for HumHub (if necessary)
+# Set proper file permissions for HumHub
 RUN chown -R humhubuser:humhubuser /var/www/html/app && chmod -R 775 /var/www/html/app
 
 # Expose port 8080 for HTTP access
