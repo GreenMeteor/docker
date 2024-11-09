@@ -2,13 +2,16 @@
 FROM dunglas/frankenphp-dev:latest
 
 # Use tini as an entrypoint for better process management
-RUN apt-get update && apt-get install -y tini && apt-get clean
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends tini && \
+    rm -rf /var/lib/apt/lists/*
 
 # Set the working directory for HumHub
 WORKDIR /var/www/html
 
 # Install system dependencies required by PHP extensions and HumHub
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
     git \
     unzip \
     curl \
@@ -40,7 +43,8 @@ RUN install-php-extensions \
     && docker-php-ext-enable redis
 
 # Optional: Install ImageMagick and GraphicsMagick for better image processing
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
     imagemagick \
     graphicsmagick \
     && rm -rf /var/lib/apt/lists/*
