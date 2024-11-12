@@ -15,21 +15,14 @@ services:
       - HUMHUB_DB_NAME=humhub_test
       - HUMHUB_DB_USER=humhubuser
       - HUMHUB_DB_PASSWORD=humhubpassword
-      # FrankenPHP-specific environment variables
+      # FrankenPHP specific environment variables
       - SERVER_NAME=:80
       - PHP_INI_MEMORY_LIMIT=512M
       - PHP_INI_MAX_EXECUTION_TIME=300
     depends_on:
-      db:
-        condition: service_healthy
+      - db
     networks:
       - humhub_test_network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
 
   db:
     image: mysql:8
@@ -38,13 +31,6 @@ services:
       MYSQL_DATABASE: humhub_test
       MYSQL_USER: humhubuser
       MYSQL_PASSWORD: humhubpassword
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "humhubuser", "-phumhubpassword"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    command: --default-authentication-plugin=mysql_native_password
     volumes:
       - humhub_db_data:/var/lib/mysql
     networks:
