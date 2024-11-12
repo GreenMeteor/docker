@@ -1,6 +1,6 @@
 {
     # Global options
-    auto_https on
+    auto_https off
     admin off
 }
 
