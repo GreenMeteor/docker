@@ -1,10 +1,74 @@
 {
     # Global options
-    auto_https off
     admin off
+    auto_https off
+    servers {
+        protocol {
+            experimental_http3
+        }
+    }
 }
 
+# Main site configuration
 :80 {
     root * /app
-    php_server
+    php_server {
+        index index.php
+    }
+
+    # Security headers
+    header {
+        # Security headers
+        X-Frame-Options "SAMEORIGIN"
+        X-Content-Type-Options "nosniff"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "geolocation=(), microphone=(), camera=()"
+        # HSTS (uncomment if you're using HTTPS)
+        # Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        
+        # Remove X-Powered-By header
+        -X-Powered-By
+    }
+
+    # Deny access to sensitive files
+    @sensitive {
+        path /.env
+        path /composer.json
+        path /composer.lock
+        path /package.json
+        path /package-lock.json
+        path /protected/*
+        path /uploads/file/*
+        path /.git/*
+        path /.github/*
+        path /vendor/*
+        path /node_modules/*
+    }
+    respond @sensitive 403
+
+    # Handle static files
+    handle_path /static/* {
+        root * /app/static
+        file_server
+    }
+
+    # Handle uploads with proper security
+    handle_path /uploads/* {
+        root * /app/uploads
+        file_server
+    }
+
+    # PHP handling
+    handle {
+        encode gzip
+        php_fastcgi unix//var/run/php-fpm.sock
+        file_server
+    }
+
+    # Logging
+    log {
+        output file /var/log/humhub/access.log
+        format json
+    }
 }
