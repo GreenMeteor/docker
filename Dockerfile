@@ -1,16 +1,28 @@
-# Use the development version of FrankenPHP
-FROM dunglas/frankenphp-dev:latest
+# Build stage
+FROM dunglas/frankenphp-dev:latest AS builder
 
-# Use tini as an entrypoint for better process management
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends tini && \
-    rm -rf /var/lib/apt/lists/*
+# Build arguments for versioning and cache busting
+ARG BUILD_DATE
+ARG VCS_REF
+ARG HUMHUB_VERSION=1.17.0-beta.1
+
+# Labels for better image management and tracking
+LABEL org.label-schema.build-date=$BUILD_DATE \
+      org.label-schema.vcs-ref=$VCS_REF \
+      org.label-schema.vendor="HumHub" \
+      org.label-schema.version=$HUMHUB_VERSION \
+      org.label-schema.schema-version="1.0" \
+      org.opencontainers.image.created=$BUILD_DATE \
+      org.opencontainers.image.revision=$VCS_REF \
+      security.privileged="false"
 
 # Set the working directory
 WORKDIR /app
 
-# Install system dependencies including cron
-RUN apt-get update && \
+# Install build dependencies - combining all apt-get commands to optimize layers
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && \
     apt-get install -y --no-install-recommends \
     git \
     unzip \
@@ -24,10 +36,13 @@ RUN apt-get update && \
     libicu-dev \
     libmagickcore-dev \
     libmagickwand-dev \
+    imagemagick \
+    graphicsmagick \
     cron \
+    tini \
     && rm -rf /var/lib/apt/lists/*
 
-# Install the necessary PHP extensions for HumHub
+# Install PHP extensions using a single layer
 RUN install-php-extensions \
     pdo_mysql \
     gd \
@@ -38,52 +53,130 @@ RUN install-php-extensions \
     xml \
     exif \
     fileinfo \
+    opcache \
     && pecl install redis \
-    && docker-php-ext-enable redis
-
-# Optional: Install ImageMagick and GraphicsMagick for better image processing
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    imagemagick \
-    graphicsmagick \
-    && rm -rf /var/lib/apt/lists/*
+    && docker-php-ext-enable redis opcache
 
 # Download and extract HumHub
-RUN curl -L https://download.humhub.com/downloads/install/humhub-1.17.0-beta.1.zip -o humhub.zip && \
+RUN curl -L "https://download.humhub.com/downloads/install/humhub-${HUMHUB_VERSION}.zip" -o humhub.zip && \
     unzip -q humhub.zip -d . && \
-    mv humhub-1.17.0-beta.1/* . && \
-    rm -rf humhub-1.17.0-beta.1 humhub.zip
+    mv "humhub-${HUMHUB_VERSION}"/* . && \
+    rm -rf "humhub-${HUMHUB_VERSION}" humhub.zip
 
-# Create a script to run HumHub cron jobs
-RUN printf '#!/bin/sh\nphp /app/protected/yii queue/run > /dev/null 2>&1\nphp /app/protected/yii cron/run > /dev/null 2>&1\n' > /usr/local/bin/humhub-cron.sh && \
-    chmod +x /usr/local/bin/humhub-cron.sh
+# Create necessary scripts
+COPY --chmod=755 <<EOF /usr/local/bin/humhub-cron.sh
+#!/bin/sh
+php /app/protected/yii queue/run >> /var/log/humhub/cron.log 2>&1
+php /app/protected/yii cron/run >> /var/log/humhub/cron.log 2>&1
+EOF
 
-# Set up the crontab for HumHub
+COPY --chmod=755 <<EOF /usr/local/bin/docker-healthcheck.sh
+#!/bin/sh
+if curl -sfI http://localhost/ping >/dev/null; then
+    # Check if queue is processing
+    if php /app/protected/yii queue/info | grep -q "waiting: 0"; then
+        exit 0
+    fi
+    exit 1
+fi
+exit 1
+EOF
+
+COPY --chmod=755 <<EOF /usr/local/bin/docker-entrypoint.sh
+#!/bin/sh
+set -e
+
+# Create log directory if it doesn't exist
+mkdir -p /var/log/humhub
+chown -R humhub:humhub /var/log/humhub
+
+# Start cron in the background
+cron
+
+# Apply any pending migrations
+php /app/protected/yii migrate/up --interactive=0
+php /app/protected/yii module/update-all --interactive=0
+
+# Start FrankenPHP
+exec frankenphp run --config /etc/caddy/Caddyfile
+EOF
+
+# Final stage
+FROM dunglas/frankenphp:1.3.0
+
+# Copy build arguments to final stage
+ARG BUILD_DATE
+ARG VCS_REF
+ARG HUMHUB_VERSION
+
+# Copy labels from builder
+LABEL org.label-schema.build-date=$BUILD_DATE \
+      org.label-schema.vcs-ref=$VCS_REF \
+      org.label-schema.vendor="HumHub" \
+      org.label-schema.version=$HUMHUB_VERSION
+
+# Install runtime dependencies only
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+    tini \
+    cron \
+    libmagickcore-dev \
+    libmagickwand-dev \
+    imagemagick \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set up non-root user with specific UID/GID
+RUN addgroup --system --gid 1001 humhub && \
+    adduser --system --uid 1001 --gid 1001 --home /home/humhub --shell /bin/bash humhub
+
+# Set up directories and permissions
+WORKDIR /app
+RUN mkdir -p /var/log/humhub && \
+    chown -R humhub:humhub /var/log/humhub
+
+# Copy application from builder
+COPY --from=builder --chown=humhub:humhub /app /app
+COPY --from=builder /usr/local/bin/humhub-cron.sh /usr/local/bin/
+COPY --from=builder /usr/local/bin/docker-healthcheck.sh /usr/local/bin/
+COPY --from=builder /usr/local/bin/docker-entrypoint.sh /usr/local/bin/
+
+# Set up cron
 RUN printf '*/5 * * * * /usr/local/bin/humhub-cron.sh\n' > /etc/cron.d/humhub && \
     chmod 0644 /etc/cron.d/humhub && \
-    crontab /etc/cron.d/humhub
-
-# Create an entrypoint script
-RUN printf '#!/bin/sh\n# Start cron in the background\ncron\n\n# Start FrankenPHP\nexec frankenphp run --config /etc/caddy/Caddyfile\n' > /usr/local/bin/docker-entrypoint.sh && \
-    chmod +x /usr/local/bin/docker-entrypoint.sh
-
-# Set up non-root user
-RUN useradd -m -d /home/humhubuser -s /bin/bash humhubuser && \
-    chown -R humhubuser:humhubuser /app && \
-    chmod -R 775 /app
-
-# Make sure humhubuser can write to the cron job output
-RUN touch /var/log/cron.log && \
-    chown humhubuser:humhubuser /var/log/cron.log
+    crontab -u humhub /etc/cron.d/humhub
 
 # Copy the FrankenPHP configuration
-COPY Caddyfile /etc/caddy/Caddyfile
+COPY --chown=humhub:humhub Caddyfile /etc/caddy/Caddyfile
 
-# Expose port 80 and 443 for HTTP/HTTPS access
+# Set proper permissions
+RUN chmod -R 755 /app && \
+    chmod -R 775 /app/protected/runtime /app/protected/config /app/uploads
+
+# Add security headers
+ENV PHP_OPCACHE_ENABLE=1 \
+    PHP_OPCACHE_REVALIDATE_FREQ=0 \
+    PHP_OPCACHE_VALIDATE_TIMESTAMPS=0 \
+    PHP_OPCACHE_MAX_ACCELERATED_FILES=10000 \
+    PHP_OPCACHE_MEMORY_CONSUMPTION=192 \
+    PHP_OPCACHE_MAX_WASTED_PERCENTAGE=10
+
+# Set up volumes
+VOLUME ["/app/protected/config", "/app/protected/runtime", "/app/uploads"]
+
+# Expose ports
 EXPOSE 80 443
 
-# Use tini as the init process
+# Set up healthcheck
+HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
+    CMD ["/usr/local/bin/docker-healthcheck.sh"]
+
+# Switch to non-root user
+USER humhub
+
+# Use tini as init process
 ENTRYPOINT ["/usr/bin/tini", "--"]
 
-# Run our entrypoint script
+# Set the default command
 CMD ["/usr/local/bin/docker-entrypoint.sh"]
