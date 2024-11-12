@@ -28,17 +28,84 @@ jobs:
           sudo chmod +x /usr/local/bin/docker-compose
           docker-compose --version
 
+      - name: Create necessary directories on the host
+        run: |
+          mkdir -p ./humhub/protected/config
+          mkdir -p ./humhub/protected/runtime
+          mkdir -p ./humhub/protected/modules
+          touch ./humhub/protected/config/main.php  # Example configuration file (you can add more files as necessary)
+
+      - name: Create test docker-compose file
+        run: |
+          cat > docker-compose.test.yml << 'EOF'
+          version: "3.8"
+          services:
+            humhub:
+              build: .
+              ports:
+                - "80:80"
+                - "443:443"
+              volumes:
+                - ./humhub:/app
+              environment:
+                - PHP_MEMORY_LIMIT=512M
+                - PHP_MAX_EXECUTION_TIME=300
+                - HUMHUB_DB_HOST=db
+                - HUMHUB_DB_NAME=humhub_test
+                - HUMHUB_DB_USER=humhubuser
+                - HUMHUB_DB_PASSWORD=humhubpassword
+                - SERVER_NAME=:80
+                - PHP_INI_MEMORY_LIMIT=512M
+                - PHP_INI_MAX_EXECUTION_TIME=300
+              depends_on:
+                - db
+              networks:
+                - humhub_test_network
+            db:
+              image: mysql:8
+              environment:
+                MYSQL_ROOT_PASSWORD: rootpassword
+                MYSQL_DATABASE: humhub_test
+                MYSQL_USER: humhubuser
+                MYSQL_PASSWORD: humhubpassword
+              healthcheck:
+                test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "humhubuser", "-phumhubpassword"]
+                interval: 5s
+                timeout: 5s
+                retries: 10
+              networks:
+                - humhub_test_network
+          networks:
+            humhub_test_network:
+              driver: bridge
+          EOF
+
       - name: Build containers
         run: docker-compose -f docker-compose.test.yml build --no-cache
 
-      - name: Start containers
+      - name: Start containers and debug
         run: |
           docker-compose -f docker-compose.test.yml up -d
           echo "Waiting for containers to start..."
-          sleep 300 # Increased sleep time to ensure the containers are up
+          sleep 10
+          echo "Docker compose ps:"
+          docker-compose -f docker-compose.test.yml ps
+          echo "Docker compose logs:"
+          docker-compose -f docker-compose.test.yml logs
+          echo "Container status:"
+          docker ps -a
 
-      - name: Check container status
-        run: docker-compose -f docker-compose.test.yml ps -a
+      - name: Debug container startup
+        if: failure()
+        run: |
+          echo "Checking humhub container logs..."
+          docker-compose -f docker-compose.test.yml logs humhub
+          echo "Checking container filesystem..."
+          docker-compose -f docker-compose.test.yml exec -T humhub ls -la /app || true
+          echo "Checking Caddyfile..."
+          docker-compose -f docker-compose.test.yml exec -T humhub cat /etc/caddy/Caddyfile || true
+          echo "Checking FrankenPHP processes..."
+          docker-compose -f docker-compose.test.yml exec -T humhub ps aux || true
 
       - name: Verify MySQL is ready
         run: |
@@ -47,7 +114,13 @@ jobs:
 
       - name: Grant MySQL privileges
         run: |
-          docker-compose -f docker-compose.test.yml exec -T db mysql -u root -prootpassword -e "CREATE USER IF NOT EXISTS 'humhubuser'@'%' IDENTIFIED BY 'humhubpassword'; GRANT ALL PRIVILEGES ON humhub_test.* TO 'humhubuser'@'%'; FLUSH PRIVILEGES;"
+          RETRIES=5
+          until docker-compose -f docker-compose.test.yml exec -T db mysql -u root -prootpassword -e "CREATE USER IF NOT EXISTS 'humhubuser'@'%' IDENTIFIED BY 'humhubpassword';" || [ $RETRIES -eq 0 ]; do
+            echo "Retrying MySQL user creation..."
+            ((RETRIES--))
+            sleep 5
+          done
+          docker-compose -f docker-compose.test.yml exec -T db mysql -u root -prootpassword -e "GRANT ALL PRIVILEGES ON humhub_test.* TO 'humhubuser'@'%'; FLUSH PRIVILEGES;"
 
       - name: Verify PHP and FrankenPHP
         run: |
@@ -55,7 +128,8 @@ jobs:
           docker-compose -f docker-compose.test.yml exec -T humhub frankenphp version || echo "::error::FrankenPHP verification failed"
 
       - name: Verify PHP extensions
-        run: docker-compose -f docker-compose.test.yml exec -T humhub php -m || echo "::error::Unable to list PHP extensions"
+        run: |
+          docker-compose -f docker-compose.test.yml exec -T humhub php -m || echo "::error::Unable to list PHP extensions"
 
       - name: Verify HumHub files
         run: |
@@ -76,4 +150,6 @@ jobs:
 
       - name: Cleanup
         if: always()
-        run: docker-compose -f docker-compose.test.yml down -v
+        run: |
+          docker-compose -f docker-compose.test.yml down -v
+          docker-compose -f docker-compose.test.yml rm -f -v
