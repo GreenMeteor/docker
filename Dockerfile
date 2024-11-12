@@ -55,25 +55,16 @@ RUN curl -L https://download.humhub.com/downloads/install/humhub-1.17.0-beta.1.z
     rm -rf humhub-1.17.0-beta.1 humhub.zip
 
 # Create a script to run HumHub cron jobs
-RUN echo '#!/bin/sh\n\
-php /app/protected/yii queue/run > /dev/null 2>&1\n\
-php /app/protected/yii cron/run > /dev/null 2>&1\n\
-' > /usr/local/bin/humhub-cron.sh && \
+RUN printf '#!/bin/sh\nphp /app/protected/yii queue/run > /dev/null 2>&1\nphp /app/protected/yii cron/run > /dev/null 2>&1\n' > /usr/local/bin/humhub-cron.sh && \
     chmod +x /usr/local/bin/humhub-cron.sh
 
 # Set up the crontab for HumHub
-RUN echo '*/5 * * * * /usr/local/bin/humhub-cron.sh' > /etc/cron.d/humhub && \
+RUN printf '*/5 * * * * /usr/local/bin/humhub-cron.sh\n' > /etc/cron.d/humhub && \
     chmod 0644 /etc/cron.d/humhub && \
     crontab /etc/cron.d/humhub
 
 # Create an entrypoint script
-RUN echo '#!/bin/sh\n\
-# Start cron in the background\n\
-cron\n\
-\n\
-# Start FrankenPHP\n\
-exec frankenphp run --config /etc/caddy/Caddyfile\n\
-' > /usr/local/bin/docker-entrypoint.sh && \
+RUN printf '#!/bin/sh\n# Start cron in the background\ncron\n\n# Start FrankenPHP\nexec frankenphp run --config /etc/caddy/Caddyfile\n' > /usr/local/bin/docker-entrypoint.sh && \
     chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Set up non-root user
