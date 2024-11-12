@@ -1,4 +1,4 @@
-# Use a specific FrankenPHP image with PHP 8.3 and Debian Bookworm variant
+# Use the development version of FrankenPHP
 FROM dunglas/frankenphp-dev:latest
 
 # Use tini as an entrypoint for better process management
@@ -6,10 +6,10 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends tini && \
     rm -rf /var/lib/apt/lists/*
 
-# Set the working directory for HumHub
-WORKDIR /var/www/html
+# Set the working directory
+WORKDIR /app
 
-# Install system dependencies required by PHP extensions and HumHub
+# Install system dependencies including cron
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     git \
@@ -25,7 +25,6 @@ RUN apt-get update && \
     libmagickcore-dev \
     libmagickwand-dev \
     cron \
-    apache2 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install the necessary PHP extensions for HumHub
@@ -49,35 +48,51 @@ RUN apt-get update && \
     graphicsmagick \
     && rm -rf /var/lib/apt/lists/*
 
-# Download the HumHub zip file
-RUN curl -L https://download.humhub.com/downloads/install/humhub-1.17.0-beta.1.zip -o humhub.zip
+# Download and extract HumHub
+RUN curl -L https://download.humhub.com/downloads/install/humhub-1.17.0-beta.1.zip -o humhub.zip && \
+    unzip -q humhub.zip -d . && \
+    mv humhub-1.17.0-beta.1/* . && \
+    rm -rf humhub-1.17.0-beta.1 humhub.zip
 
-# Create the app/ directory and extract the HumHub zip into it
-RUN mkdir -p /var/www/html/app && \
-    unzip -q humhub.zip -d humhub_temp && \
-    mv humhub_temp/humhub-1.17.0-beta.1/* /var/www/html/app/ && \
-    rm -rf humhub_temp humhub.zip
+# Create a script to run HumHub cron jobs
+RUN echo '#!/bin/sh\n\
+php /app/protected/yii queue/run > /dev/null 2>&1\n\
+php /app/protected/yii cron/run > /dev/null 2>&1\n\
+' > /usr/local/bin/humhub-cron.sh && \
+    chmod +x /usr/local/bin/humhub-cron.sh
 
-# Create necessary directories for Apache, Cron, and other dependencies
-RUN mkdir -p /var/run/apache2 /var/run/cron /var/www/html/app/config /var/www/html/app/modules /var/www/html/app/protected
+# Set up the crontab for HumHub
+RUN echo '*/5 * * * * /usr/local/bin/humhub-cron.sh' > /etc/cron.d/humhub && \
+    chmod 0644 /etc/cron.d/humhub && \
+    crontab /etc/cron.d/humhub
 
-# Set ownership for all HumHub files to a non-root user
+# Create an entrypoint script
+RUN echo '#!/bin/sh\n\
+# Start cron in the background\n\
+cron\n\
+\n\
+# Start FrankenPHP\n\
+exec frankenphp run --config /etc/caddy/Caddyfile\n\
+' > /usr/local/bin/docker-entrypoint.sh && \
+    chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Set up non-root user
 RUN useradd -m -d /home/humhubuser -s /bin/bash humhubuser && \
-    chown -R humhubuser:humhubuser /var/www/html/app /var/run/apache2 /var/run/cron && \
-    chmod -R 775 /var/www/html/app
+    chown -R humhubuser:humhubuser /app && \
+    chmod -R 775 /app
 
-# Copy and set up cron job
-COPY crontab /etc/cron.d/humhub-cron
-RUN chmod 0644 /etc/cron.d/humhub-cron && crontab /etc/cron.d/humhub-cron
+# Make sure humhubuser can write to the cron job output
+RUN touch /var/log/cron.log && \
+    chown humhubuser:humhubuser /var/log/cron.log
 
-# Expose port 8080 for HTTP access
-EXPOSE 8080
+# Copy the FrankenPHP configuration
+COPY Caddyfile /etc/caddy/Caddyfile
 
-# Switch to the non-root user
-USER humhubuser
+# Expose port 80 and 443 for HTTP/HTTPS access
+EXPOSE 80 443
 
-# Use tini as the entry point to manage processes
+# Use tini as the init process
 ENTRYPOINT ["/usr/bin/tini", "--"]
 
-# Start the cron service, Apache server, and FrankenPHP
-CMD ["sh", "-c", "service cron start && service apache2 start && frankenphp /var/www/html/app/index.php"]
+# Run our entrypoint script
+CMD ["/usr/local/bin/docker-entrypoint.sh"]
