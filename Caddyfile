@@ -1,0 +1,10 @@
+{
+    # Global options
+    auto_https on
+    admin off
+}
+
+:80 {
+    root * /app
+    php_server
+}
