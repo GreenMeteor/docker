@@ -1,14 +1,14 @@
 version: "3.8"
-
 services:
   humhub:
     build: .
     ports:
-      - "8080:8080"
+      - "80:80"
+      - "443:443"
     volumes:
-      - .:/var/www/html
-      - humhub_config:/var/www/html/protected/config
-      - humhub_runtime:/var/www/html/protected/runtime
+      - .:/app
+      - humhub_config:/app/protected/config
+      - humhub_runtime:/app/protected/runtime
     environment:
       - PHP_MEMORY_LIMIT=512M
       - PHP_MAX_EXECUTION_TIME=300
@@ -16,6 +16,10 @@ services:
       - HUMHUB_DB_NAME=humhub
       - HUMHUB_DB_USER=humhubuser
       - HUMHUB_DB_PASSWORD=humhubpassword
+      # FrankenPHP specific environment variables
+      - SERVER_NAME=:80
+      - PHP_INI_MEMORY_LIMIT=512M
+      - PHP_INI_MAX_EXECUTION_TIME=300
     depends_on:
       - db
     networks:
