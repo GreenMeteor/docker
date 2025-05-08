@@ -39,7 +39,6 @@ jobs:
         uses: ibiqlik/action-yamllint@v3
         with:
           file_or_dir: .
-          config_file: .yamllint.yml
           strict: false
           
       - name: Lint Shell scripts
