@@ -18,10 +18,9 @@ RUN apt-get update && apt-get install -y \
     git=1:2.25.1-1ubuntu3.2 \
     libmagickwand-dev=8:6.9.10.23+dfsg-2.1ubuntu11.4 \
     --no-install-recommends && \
-    rm -rf /var/lib/apt/lists/*
-
-# Install PHP extensions and PECL extensions
-RUN docker-php-ext-configure gd --with-freetype --with-jpeg && \
+    rm -rf /var/lib/apt/lists/* && \
+    # Install PHP extensions and PECL extensions
+    docker-php-ext-configure gd --with-freetype --with-jpeg && \
     docker-php-ext-configure ldap --with-libdir=lib/x86_64-linux-gnu/ && \
     docker-php-ext-install -j"$(nproc)" \
     gd \
@@ -34,53 +33,34 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg && \
     ldap \
     xml && \
     pecl install imagick redis && \
-    docker-php-ext-enable imagick redis
-
-# Set recommended PHP.ini settings
-RUN printf 'opcache.memory_consumption=128\n' \
-    'opcache.interned_strings_buffer=8\n' \
-    'opcache.max_accelerated_files=4000\n' \
-    'opcache.revalidate_freq=60\n' \
-    'opcache.fast_shutdown=1\n' \
-    'opcache.enable_cli=1\n' \
-    'upload_max_filesize=32M\n' \
-    'post_max_size=32M\n' \
-    'memory_limit=256M\n' \
-    'max_execution_time=120\n' \
-    'date.timezone=UTC\n' > /usr/local/etc/php/conf.d/opcache-recommended.ini
-
-# Download and verify HumHub
-WORKDIR /tmp
-RUN curl -SL https://download.humhub.com/downloads/install/humhub-${HUMHUB_VERSION}.zip -o humhub.zip && \
+    docker-php-ext-enable imagick redis && \
+    # Set recommended PHP.ini settings
+    printf "opcache.memory_consumption=128\nopcache.interned_strings_buffer=8\nopcache.max_accelerated_files=4000\nopcache.revalidate_freq=60\nopcache.fast_shutdown=1\nopcache.enable_cli=1\nupload_max_filesize=32M\npost_max_size=32M\nmemory_limit=256M\nmax_execution_time=120\ndate.timezone=UTC\n" > /usr/local/etc/php/conf.d/opcache-recommended.ini && \
+    # Download and verify HumHub
+    curl -SL https://download.humhub.com/downloads/install/humhub-${HUMHUB_VERSION}.zip -o humhub.zip && \
     unzip humhub.zip -d /tmp/ && \
     rm humhub.zip && \
     mv /tmp/humhub-* /var/www/html && \
-    chown -R www-data:www-data /var/www/html
-
-# Setup scripts and permissions
-COPY wait-for-it.sh /usr/local/bin/wait-for-it
-COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN chmod +x /usr/local/bin/wait-for-it /usr/local/bin/docker-entrypoint.sh
-
-# Create health check script
-RUN echo "<?php echo 'OK';" > /var/www/html/ping
-
-# Set directory permissions
-RUN chmod -R 755 /var/www/html && \
+    chown -R www-data:www-data /var/www/html && \
+    # Setup scripts and permissions
+    chmod +x /usr/local/bin/wait-for-it /usr/local/bin/docker-entrypoint.sh && \
+    # Create health check script
+    echo "<?php echo 'OK';" > /var/www/html/ping && \
+    # Set directory permissions
+    chmod -R 755 /var/www/html && \
     find /var/www/html -type f -exec chmod 644 {} \; && \
     find /var/www/html -type d -exec chmod 755 {} \; && \
     chmod -R 775 /var/www/html/protected/runtime /var/www/html/protected/modules /var/www/html/uploads /var/www/html/assets && \
-    chown -R www-data:www-data /var/www/html
-
-# Create volume mount points
-VOLUME ["/var/www/html/protected/runtime", "/var/www/html/uploads", "/var/www/html/protected/modules", "/var/www/html/protected/config", "/var/www/html/themes"]
-
-# Security hardening (clean up unneeded test dirs)
-RUN rm -rf /var/www/html/protected/vendor/bower-asset/*/test \
+    chown -R www-data:www-data /var/www/html && \
+    # Clean up unneeded test dirs
+    rm -rf /var/www/html/protected/vendor/bower-asset/*/test \
            /var/www/html/protected/vendor/bower-asset/*/tests \
            /var/www/html/protected/vendor/*/test \
            /var/www/html/protected/vendor/*/tests \
            /var/www/html/protected/runtime/logs/*
+
+# Create volume mount points
+VOLUME ["/var/www/html/protected/runtime", "/var/www/html/uploads", "/var/www/html/protected/modules", "/var/www/html/protected/config", "/var/www/html/themes"]
 
 # Set working directory
 WORKDIR /var/www/html
