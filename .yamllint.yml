@@ -16,8 +16,8 @@ rules:
     min-spaces-from-content: 0  # No strict requirement for spaces after comments
 
   # Allow longer comments (like explanations for environment variables)
-  comments-indentation: ignore  # Ignore indentation for comments
-
+  comments-indentation: disable  # Corrected this to 'disable'
+  
   # Relax the document-start rule
   document-start:
     present: off  # Don't enforce document start presence
