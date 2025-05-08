@@ -9,7 +9,7 @@ rules:
   # Accept both double and single quotes
   quoted-strings:
     quote-type: any
-    required: false  # Allow unquoted strings without triggering warnings
+    required: only-when-needed  # Corrected this to 'only-when-needed'
   
   # Don't worry about comments starting with a capital letter
   comments:
