@@ -23,7 +23,7 @@ RUN apt-get update && apt-get install -y \
 # Install PHP extensions
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg && \
     docker-php-ext-configure ldap --with-libdir=lib/x86_64-linux-gnu/ && \
-    docker-php-ext-install -j$(nproc) \
+    docker-php-ext-install -j"$(nproc)" \
     gd \
     intl \
     mysqli \
@@ -34,13 +34,9 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg && \
     ldap \
     xml
 
-# Install ImageMagick extension
-RUN pecl install imagick && \
-    docker-php-ext-enable imagick
-
-# Install Redis extension
-RUN pecl install redis && \
-    docker-php-ext-enable redis
+# Install and enable PECL extensions
+RUN pecl install imagick redis && \
+    docker-php-ext-enable imagick redis
 
 # Set recommended PHP.ini settings
 RUN { \
@@ -65,42 +61,34 @@ RUN curl -SL https://download.humhub.com/downloads/install/humhub-${HUMHUB_VERSI
     mv /tmp/humhub-* /var/www/html && \
     chown -R www-data:www-data /var/www/html
 
-# Set up wait-for script to ensure database is ready before app starts
+# Setup scripts and permissions
 COPY wait-for-it.sh /usr/local/bin/wait-for-it
-RUN chmod +x /usr/local/bin/wait-for-it
-
-# Copy custom initialization script
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/wait-for-it /usr/local/bin/docker-entrypoint.sh
 
 # Create health check script
 RUN echo "<?php echo 'OK';" > /var/www/html/ping
 
-# Set up proper directory permissions
+# Set directory permissions
 RUN chmod -R 755 /var/www/html && \
     find /var/www/html -type f -exec chmod 644 {} \; && \
     find /var/www/html -type d -exec chmod 755 {} \; && \
-    chmod -R 775 /var/www/html/protected/runtime && \
-    chmod -R 775 /var/www/html/protected/modules && \
-    chmod -R 775 /var/www/html/uploads && \
-    chmod -R 775 /var/www/html/assets && \
+    chmod -R 775 /var/www/html/protected/runtime /var/www/html/protected/modules /var/www/html/uploads /var/www/html/assets && \
     chown -R www-data:www-data /var/www/html
 
 # Create volume mount points
 VOLUME ["/var/www/html/protected/runtime", "/var/www/html/uploads", "/var/www/html/protected/modules", "/var/www/html/protected/config", "/var/www/html/themes"]
 
-# Set up security hardening
-RUN rm -rf /var/www/html/protected/vendor/bower-asset/*/test && \
-    rm -rf /var/www/html/protected/vendor/bower-asset/*/tests && \
-    rm -rf /var/www/html/protected/vendor/*/test && \
-    rm -rf /var/www/html/protected/vendor/*/tests && \
-    rm -rf /var/www/html/protected/runtime/logs/*
+# Security hardening (clean up unneeded test dirs)
+RUN rm -rf /var/www/html/protected/vendor/bower-asset/*/test \
+           /var/www/html/protected/vendor/bower-asset/*/tests \
+           /var/www/html/protected/vendor/*/test \
+           /var/www/html/protected/vendor/*/tests \
+           /var/www/html/protected/runtime/logs/*
 
 # Set working directory
 WORKDIR /var/www/html
 
-# Set entrypoint
+# Set entrypoint and default command
 ENTRYPOINT ["docker-entrypoint.sh"]
-
-# Default command
 CMD ["php-fpm"]
