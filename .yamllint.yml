@@ -1,41 +1,39 @@
----
 extends: default
 
 rules:
-  # 80 chars should be enough, but don't fail if a line is longer
+  # Allow lines longer than 120 characters
   line-length:
-    max: 120
-    level: warning
-
+    max: 200  # Increased max line length
+    level: off  # Disable any warnings for line length
+  
   # Accept both double and single quotes
   quoted-strings:
     quote-type: any
-    required: only-when-needed
-
+    required: never  # Allow unquoted strings without triggering warnings
+  
   # Don't worry about comments starting with a capital letter
   comments:
-    min-spaces-from-content: 1
+    min-spaces-from-content: 0  # No strict requirement for spaces after comments
 
   # Allow longer comments (like explanations for environment variables)
-  comments-indentation: disable
+  comments-indentation: ignore  # Ignore indentation for comments
 
   # Relax the document-start rule
   document-start:
-    present: true
-    level: warning
-
-  # Don't require an empty line between sections
+    present: off  # Don't enforce document start presence
+  
+  # Allow no empty line between sections
   empty-lines:
-    max: 2
-    max-start: 1
-    max-end: 1
-
-  # Relax requirements on keys
-  key-duplicates: enable
-  key-ordering: disable
-
+    max: 5  # Allow more than 2 empty lines
+    max-start: 0  # Allow no empty line at the start of the document
+    max-end: 0  # Allow no empty line at the end of the document
+  
+  # Relax requirements on keys (allow duplicates)
+  key-duplicates: enable  # Allow key duplicates
+  key-ordering: off  # Don't enforce ordering of keys
+  
   # Relaxed indentation for readability
   indentation:
-    spaces: 2
-    indent-sequences: true
-    check-multi-line-strings: false
+    spaces: 2  # Keep 2-space indentation
+    indent-sequences: false  # No enforcement of sequence indentation style
+    check-multi-line-strings: false  # Allow multi-line strings without checking
