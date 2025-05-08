@@ -1,10 +1,10 @@
 extends: default
 
 rules:
-  # Allow lines longer than 120 characters
+  # Allow lines longer than 120 characters (set to warning)
   line-length:
     max: 200  # Increased max line length
-    level: off  # Disable any warnings for line length
+    level: warning  # Change from off to warning
   
   # Accept both double and single quotes
   quoted-strings:
