@@ -53,7 +53,7 @@ services:
     build:
       context: ./humhub
       args:
-        - HUMHUB_VERSION=1.17.1
+        - HUMHUB_VERSION=1.17.2
     container_name: humhub-web
     restart: always
     depends_on:
