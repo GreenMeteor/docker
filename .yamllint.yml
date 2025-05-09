@@ -3,9 +3,11 @@ extends: default
 rules:
   trailing-spaces: disable
   indentation:
-    spaces: consistent  # You can change to a specific number like 2 or 4
+    spaces: consistent
     indent-sequences: consistent
-    level: warning      # Optional: downgrade to warning instead of error
+    level: warning
   quoted-strings: disable
   brackets: disable
   truthy: disable
+  line-length: disable
+  document-start: disable
