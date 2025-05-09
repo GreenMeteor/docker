@@ -6,7 +6,7 @@ set -e
 source /etc/borg/borg.conf
 
 # Initialize variables
-BACKUP_DATE="$(date +%Y-%m-%d_%H-%M-%S)"
+BACKUP_DATE=$(date +%Y-%m-%d_%H-%M-%S)
 BACKUP_NAME="${BACKUP_PREFIX}_${BACKUP_DATE}"
 MYSQL_DUMP_FILE="/tmp/mysql_dump.sql"
 
@@ -45,7 +45,7 @@ echo "Pruning old backups..."
 borg prune \
     --list \
     --prefix "${BACKUP_PREFIX}_" \
-    "${BORG_RETENTION}" \
+    ${BORG_RETENTION} \
     "${BORG_REPO}"
 
 echo "Backup completed successfully"
