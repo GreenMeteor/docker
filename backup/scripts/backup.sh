@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# shellcheck disable=SC1091
+# Load configuration
 source /etc/borg/borg.conf
 
 # Initialize variables
@@ -44,7 +44,7 @@ echo "Pruning old backups..."
 borg prune \
     --list \
     --prefix "${BACKUP_PREFIX}_" \
-    ${BORG_RETENTION} \
+    "${BORG_RETENTION}" \
     "${BORG_REPO}"
 
 echo "Backup completed successfully"
