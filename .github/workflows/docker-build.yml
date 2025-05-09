@@ -178,8 +178,10 @@ jobs:
           # Set recommended PHP.ini settings
           COPY php.ini /usr/local/etc/php/conf.d/custom.ini
 
-          # Copy wait-for-it script
-          COPY wait-for-it.sh /usr/local/bin/wait-for-it
+          # Only copy wait-for-it script if not already present
+          if [ ! -f humhub/wait-for-it.sh ]; then
+          cp humhub/wait-for-it.sh humhub/
+          fi
           # Copy entrypoint script
           COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
