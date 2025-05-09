@@ -1,0 +1,40 @@
+---
+extends: default
+
+rules:
+  # Allow lines longer than 120 characters (set to warning)
+  line-length:
+    max: 200  # Increased max line length
+    level: warning  # Change from off to warning
+  
+  # Accept both double and single quotes
+  quoted-strings:
+    quote-type: any
+    required: only-when-needed  # Corrected this to 'only-when-needed'
+  
+  # Don't worry about comments starting with a capital letter
+  comments:
+    min-spaces-from-content: 0  # No strict requirement for spaces after comments
+
+  # Allow longer comments (like explanations for environment variables)
+  comments-indentation: disable  # Corrected this to 'disable'
+  
+  # Relax the document-start rule
+  document-start:
+    present: off  # Don't enforce document start presence
+  
+  # Allow no empty line between sections
+  empty-lines:
+    max: 5  # Allow more than 2 empty lines
+    max-start: 0  # Allow no empty line at the start of the document
+    max-end: 0  # Allow no empty line at the end of the document
+  
+  # Relax requirements on keys (allow duplicates)
+  key-duplicates: enable  # Allow key duplicates
+  key-ordering: off  # Don't enforce ordering of keys
+  
+  # Relaxed indentation for readability
+  indentation:
+    spaces: 2  # Keep 2-space indentation
+    indent-sequences: false  # No enforcement of sequence indentation style
+    check-multi-line-strings: false  # Allow multi-line strings without checking
