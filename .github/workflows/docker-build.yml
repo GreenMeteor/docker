@@ -129,9 +129,6 @@ jobs:
           realpath_cache_ttl = 600
           disable_functions = exec,passthru,shell_exec,system,proc_open,popen,curl_multi_exec,parse_ini_file,show_source
           EOF
-          
-          # Copy wait-for-it script to humhub directory (only once)
-          cp humhub/wait-for-it.sh humhub/
 
           # Copy docker-entrypoint.sh to humhub directory
           cp humhub/docker-entrypoint.sh humhub/
