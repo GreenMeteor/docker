@@ -3,6 +3,7 @@ FROM php:8.2-fpm
 ARG HUMHUB_VERSION=1.17.2
 
 # Install dependencies
+# hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y \
     libzip-dev \
     libfreetype6-dev \
@@ -18,6 +19,7 @@ RUN apt-get update && apt-get install -y \
     git \
     libmagickwand-dev \
     --no-install-recommends && \
+    --no-install-suggests && \
     rm -rf /var/lib/apt/lists/* && \
     # Install PHP extensions and PECL extensions
     docker-php-ext-configure gd --with-freetype --with-jpeg && \
