@@ -19,7 +19,7 @@ on:
 
 env:
   REGISTRY: docker.io
-  BASE_IMAGE_NAME: archblood/humhub
+  IMAGE_NAME: archblood/humhub
   SHA: ${{ github.sha }}
 
 jobs:
@@ -41,12 +41,12 @@ jobs:
         with:
           file_or_dir: .
           strict: false
-          
+
       - name: Lint Shell scripts
         uses: ludeeus/action-shellcheck@master
         with:
           scandir: './backup/scripts'
-          
+
   security-scan:
     name: Security Scan
     runs-on: ubuntu-latest
@@ -77,7 +77,7 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
+
       # Copy required scripts into correct directories
       - name: Set up required script files
         run: |
@@ -261,7 +261,7 @@ jobs:
           
           ENTRYPOINT ["backup.sh"]
           EOF
-          
+
   docker-build:
     name: Build Docker Images
     runs-on: ubuntu-latest
@@ -276,41 +276,45 @@ jobs:
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
+          registry: ${{ env.REGISTRY }}
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Set image tags
+        id: tags
+        run: |
+          BRANCH="${GITHUB_REF##*/}"
+          TAGS="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${BRANCH},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${GITHUB_SHA}"
+          NGINX_TAGS="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-nginx:${BRANCH},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-nginx:${GITHUB_SHA}"
+          BACKUP_TAGS="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backup:${BRANCH},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backup:${GITHUB_SHA}"
+
+          if [ "$BRANCH" = "main" ]; then
+            TAGS="$TAGS,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+            NGINX_TAGS="$NGINX_TAGS,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-nginx:latest"
+            BACKUP_TAGS="$BACKUP_TAGS,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backup:latest"
+          fi
+
+          echo "tags=$TAGS" >> $GITHUB_OUTPUT
+          echo "nginx_tags=$NGINX_TAGS" >> $GITHUB_OUTPUT
+          echo "backup_tags=$BACKUP_TAGS" >> $GITHUB_OUTPUT
 
       - name: Build and push HumHub Docker image
         uses: docker/build-push-action@v4
         with:
           context: humhub
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.BASE_IMAGE_NAME }}:${{ github.sha }}
+          tags: ${{ steps.tags.outputs.tags }}
 
       - name: Build and push Nginx Docker image
         uses: docker/build-push-action@v4
         with:
           context: nginx
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.BASE_IMAGE_NAME }}-nginx:${{ github.sha }}
+          tags: ${{ steps.tags.outputs.nginx_tags }}
 
       - name: Build and push Backup Docker image
         uses: docker/build-push-action@v4
         with:
           context: backup
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.BASE_IMAGE_NAME }}-backup:${{ github.sha }}
-
-  deploy:
-    name: Deploy to Production
-    runs-on: ubuntu-latest
-    needs: docker-build
-    if: ${{ github.event.inputs.deploy == 'true' }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      # Deploy logic (for example, SSH to server)
-      # Customize the deployment steps as necessary
-      - name: Deploy to production
-        run: |
-          echo "Deploying to production..."
+          tags: ${{ steps.tags.outputs.backup_tags }}
