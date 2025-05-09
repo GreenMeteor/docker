@@ -179,11 +179,9 @@ jobs:
           COPY php.ini /usr/local/etc/php/conf.d/custom.ini
 
           # Only copy wait-for-it script if not already present
-          if [ ! -f humhub/wait-for-it.sh ]; then
-          cp humhub/wait-for-it.sh humhub/
-          fi
+          COPY humhub/wait-for-it.sh humhub/
           # Copy entrypoint script
-          COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+          COPY docker-entrypoint.sh humhub/
 
           # Make scripts executable
           RUN chmod +x /usr/local/bin/wait-for-it /usr/local/bin/docker-entrypoint.sh
