@@ -2,6 +2,7 @@
 set -e
 
 # Load configuration
+# shellcheck disable=SC1091
 source /etc/borg/borg.conf
 
 # Initialize variables
