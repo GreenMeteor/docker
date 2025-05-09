@@ -42,9 +42,8 @@ rules:
   # Disable checking of package versions
   truthy:
     check-keys: false  # Prevents errors with version numbers that look like boolean values
-  
-  # To ignore specific patterns or keys containing versions
-  key-patterns:
-    ignore: 
-      - '^.*version$'  # Ignores any keys ending with "version"
-      - '^.*_version$'
+
+  # Use ignoring for specific issues
+  ignore: 
+    - '^.*version$'
+    - '^.*_version$'
