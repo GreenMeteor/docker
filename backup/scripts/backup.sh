@@ -22,7 +22,7 @@ fi
 echo "Creating MySQL database dump..."
 mysqldump --host="${MYSQL_HOST}" --user="${MYSQL_USER}" \
     --password="${MYSQL_PASSWORD}" "${MYSQL_DATABASE}" \
-    ${MYSQL_DUMP_OPTIONS} > "${MYSQL_DUMP_FILE}"
+    "${MYSQL_DUMP_OPTIONS}" > "${MYSQL_DUMP_FILE}"
 
 # Create backup
 echo "Creating Borg backup archive..."
@@ -45,7 +45,7 @@ echo "Pruning old backups..."
 borg prune \
     --list \
     --prefix "${BACKUP_PREFIX}_" \
-    ${BORG_RETENTION} \
+    "${BORG_RETENTION}" \
     "${BORG_REPO}"
 
 echo "Backup completed successfully"
