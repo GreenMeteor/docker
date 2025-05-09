@@ -42,8 +42,3 @@ rules:
   # Disable checking of package versions
   truthy:
     check-keys: false  # Prevents errors with version numbers that look like boolean values
-
-  # Use ignoring for specific issues
-  ignore: 
-    - '^.*version$'
-    - '^.*_version$'
