@@ -2,10 +2,10 @@ name: HumHub Docker CI/CD
 
 on:
   push:
-    branches: [ main, master, develop ]
+    branches: [ main, develop ]
     tags: [ 'v*' ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ main, develop ]
   workflow_dispatch:
     inputs:
       deploy:
@@ -76,6 +76,193 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+        
+      # Copy required scripts into correct directories
+      - name: Set up required script files
+        run: |
+          # Create necessary directories
+          mkdir -p humhub
+          
+          # Copy PHP.ini to humhub directory
+          cat > humhub/php.ini << EOF
+          [PHP]
+          ; Security settings
+          expose_php = Off
+          max_execution_time = 120
+          max_input_time = 120
+          memory_limit = 256M
+          error_reporting = E_ALL & ~E_DEPRECATED & ~E_STRICT
+          display_errors = Off
+          display_startup_errors = Off
+          log_errors = On
+          error_log = /proc/self/fd/2
+          post_max_size = 32M
+          file_uploads = On
+          upload_max_filesize = 32M
+          max_file_uploads = 20
+          allow_url_fopen = On
+          allow_url_include = Off
+          default_socket_timeout = 60
+
+          ; Date
+          date.timezone = UTC
+
+          ; Session
+          session.cookie_httponly = 1
+          session.use_strict_mode = 1
+          session.use_cookies = 1
+          session.use_only_cookies = 1
+          session.cookie_secure = 1
+          session.cookie_samesite = "Lax"
+          session.gc_maxlifetime = 1440
+
+          ; OpCache settings
+          opcache.memory_consumption = 128
+          opcache.interned_strings_buffer = 8
+          opcache.max_accelerated_files = 4000
+          opcache.revalidate_freq = 60
+          opcache.fast_shutdown = 1
+          opcache.enable_cli = 1
+
+          ; Other settings
+          realpath_cache_size = 4096k
+          realpath_cache_ttl = 600
+          disable_functions = exec,passthru,shell_exec,system,proc_open,popen,curl_multi_exec,parse_ini_file,show_source
+          EOF
+          
+          # Copy wait-for-it script to humhub directory
+          cp paste-4.txt humhub/wait-for-it.sh
+          
+          # Copy docker-entrypoint.sh to humhub directory
+          cp paste-3.txt humhub/docker-entrypoint.sh
+
+          # Create Dockerfile in humhub directory
+          cat > humhub/Dockerfile << EOF
+          FROM php:8.2-fpm
+
+          ARG HUMHUB_VERSION=1.17.2
+
+          # Install dependencies
+          RUN apt-get update && apt-get install -y \
+              libzip-dev \
+              libfreetype6-dev \
+              libjpeg62-turbo-dev \
+              libpng-dev \
+              libicu-dev \
+              libldap2-dev \
+              libxml2-dev \
+              curl \
+              wget \
+              unzip \
+              gnupg \
+              git \
+              libmagickwand-dev \
+              --no-install-recommends && \
+              rm -rf /var/lib/apt/lists/* && \
+              # Install PHP extensions and PECL extensions
+              docker-php-ext-configure gd --with-freetype --with-jpeg && \
+              docker-php-ext-configure ldap --with-libdir=lib/x86_64-linux-gnu/ && \
+              docker-php-ext-install -j"$(nproc)" \
+              gd \
+              intl \
+              mysqli \
+              pdo_mysql \
+              zip \
+              exif \
+              opcache \
+              ldap \
+              xml && \
+              pecl install imagick redis && \
+              docker-php-ext-enable imagick redis
+
+          # Set recommended PHP.ini settings
+          COPY php.ini /usr/local/etc/php/conf.d/custom.ini
+
+          # Copy wait-for-it script
+          COPY wait-for-it.sh /usr/local/bin/wait-for-it
+          # Copy entrypoint script
+          COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+
+          # Make scripts executable
+          RUN chmod +x /usr/local/bin/wait-for-it /usr/local/bin/docker-entrypoint.sh
+
+          # Download and verify HumHub
+          RUN curl -SL https://download.humhub.com/downloads/install/humhub-\${HUMHUB_VERSION}.zip -o humhub.zip && \
+              unzip humhub.zip -d /tmp/ && \
+              rm humhub.zip && \
+              mv /tmp/humhub-* /var/www/html && \
+              # Create health check script
+              echo "<?php echo 'OK';" > /var/www/html/ping && \
+              # Set directory permissions
+              chmod -R 755 /var/www/html && \
+              find /var/www/html -type f -exec chmod 644 {} \\; && \
+              find /var/www/html -type d -exec chmod 755 {} \\; && \
+              chmod -R 775 /var/www/html/protected/runtime /var/www/html/protected/modules /var/www/html/uploads /var/www/html/assets && \
+              chown -R www-data:www-data /var/www/html && \
+              # Clean up unneeded test dirs
+              rm -rf /var/www/html/protected/vendor/bower-asset/*/test \
+                    /var/www/html/protected/vendor/bower-asset/*/tests \
+                    /var/www/html/protected/vendor/*/test \
+                    /var/www/html/protected/vendor/*/tests \
+                    /var/www/html/protected/runtime/logs/*
+
+          # Create volume mount points
+          VOLUME ["/var/www/html/protected/runtime", "/var/www/html/uploads", "/var/www/html/protected/modules", "/var/www/html/protected/config", "/var/www/html/themes"]
+
+          # Set working directory
+          WORKDIR /var/www/html
+
+          # Set entrypoint and default command
+          ENTRYPOINT ["docker-entrypoint.sh"]
+          CMD ["php-fpm"]
+          EOF
+          
+          # Create nginx directory and add docker-entrypoint.sh
+          mkdir -p nginx
+          echo '#!/bin/sh
+          set -e
+          
+          # Run nginx
+          exec nginx -g "daemon off;"' > nginx/docker-entrypoint.sh
+          chmod +x nginx/docker-entrypoint.sh
+          
+          # Create simple Nginx Dockerfile
+          cat > nginx/Dockerfile << EOF
+          FROM nginx:stable-alpine
+          
+          COPY docker-entrypoint.sh /
+          
+          ENTRYPOINT ["/docker-entrypoint.sh"]
+          EOF
+          
+          # Create backup directory and scripts
+          mkdir -p backup/scripts
+          echo '#!/bin/bash
+          set -e
+          
+          echo "Running backup..."
+          # Add your backup logic here
+          
+          # Example backup command
+          mysqldump -h$MYSQL_HOST -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE > /backup/source/db_backup.sql
+          
+          # Example creating a borg backup archive
+          borg create --stats --compression lz4 /backup/repo::$(date +%Y-%m-%d_%H-%M-%S) /backup/source
+          
+          echo "Backup completed successfully!"
+          ' > backup/scripts/backup.sh
+          chmod +x backup/scripts/backup.sh
+          
+          # Create backup Dockerfile
+          cat > backup/Dockerfile << EOF
+          FROM alpine:3.17
+          
+          RUN apk add --no-cache borgbackup mariadb-client bash
+          
+          VOLUME ["/backup/repo", "/backup/source"]
+          
+          CMD ["crond", "-f", "-d", "8"]
+          EOF
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
@@ -114,6 +301,9 @@ jobs:
           HUMHUB_MAILER_TRANSPORT=php
           BORG_PASSPHRASE=test_borg_password
           EOF
+          
+          # Create docker-compose.yml if not present
+          cp paste-2.txt docker-compose.yml
 
       - name: Build and export to Docker
         uses: docker/build-push-action@v4
@@ -212,6 +402,8 @@ jobs:
             # Make sure backup and startup scripts are executable
             chmod +x backup/scripts/backup.sh
             chmod +x nginx/docker-entrypoint.sh
+            chmod +x humhub/docker-entrypoint.sh
+            chmod +x humhub/wait-for-it.sh
             
             # Pull latest images if using prebuilt ones
             # docker-compose pull
