@@ -1,35 +1,11 @@
 extends: default
 
 rules:
-  line-length:
-    max: 200
-    level: warning
-
-  quoted-strings:
-    quote-type: any
-    required: only-when-needed
-
-  comments:
-    min-spaces-from-content: 0
-
-  comments-indentation: disable
-
-  document-start:
-    present: false
-
-  empty-lines:
-    max: 5
-    max-start: 0
-    max-end: 0
-
-  key-duplicates: false
-
-  key-ordering: false
-
+  trailing-spaces: disable
   indentation:
-    spaces: 2
-    indent-sequences: false
-    check-multi-line-strings: false
-
-  truthy:
-    check-keys: false
+    spaces: consistent  # You can change to a specific number like 2 or 4
+    indent-sequences: consistent
+    level: warning      # Optional: downgrade to warning instead of error
+  quoted-strings: disable
+  brackets: disable
+  truthy: disable
