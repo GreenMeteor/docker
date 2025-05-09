@@ -4,7 +4,7 @@ ARG HUMHUB_VERSION=1.17.2
 
 # Install dependencies
 # hadolint ignore=DL3008
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends --no-install-suggests \
     libzip-dev \
     libfreetype6-dev \
     libjpeg62-turbo-dev \
@@ -17,23 +17,21 @@ RUN apt-get update && apt-get install -y \
     unzip \
     gnupg \
     git \
-    libmagickwand-dev \
-    --no-install-recommends && \
-    --no-install-suggests && \
+    libmagickwand-dev && \
     rm -rf /var/lib/apt/lists/* && \
     # Install PHP extensions and PECL extensions
     docker-php-ext-configure gd --with-freetype --with-jpeg && \
     docker-php-ext-configure ldap --with-libdir=lib/x86_64-linux-gnu/ && \
     docker-php-ext-install -j"$(nproc)" \
-    gd \
-    intl \
-    mysqli \
-    pdo_mysql \
-    zip \
-    exif \
-    opcache \
-    ldap \
-    xml && \
+        gd \
+        intl \
+        mysqli \
+        pdo_mysql \
+        zip \
+        exif \
+        opcache \
+        ldap \
+        xml && \
     pecl install imagick redis && \
     docker-php-ext-enable imagick redis
 
@@ -60,7 +58,10 @@ RUN curl -SL https://download.humhub.com/downloads/install/humhub-${HUMHUB_VERSI
     chmod -R 755 /var/www/html && \
     find /var/www/html -type f -exec chmod 644 {} \; && \
     find /var/www/html -type d -exec chmod 755 {} \; && \
-    chmod -R 775 /var/www/html/protected/runtime /var/www/html/protected/modules /var/www/html/uploads /var/www/html/assets && \
+    chmod -R 775 /var/www/html/protected/runtime \
+                   /var/www/html/protected/modules \
+                   /var/www/html/uploads \
+                   /var/www/html/assets && \
     chown -R www-data:www-data /var/www/html && \
     # Clean up unneeded test dirs
     rm -rf /var/www/html/protected/vendor/bower-asset/*/test \
