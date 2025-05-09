@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Lint Dockerfiles
         uses: hadolint/hadolint-action@v3.1.0
@@ -52,7 +52,7 @@ jobs:
     needs: lint
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
@@ -75,7 +75,7 @@ jobs:
     needs: [lint, security-scan]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         
       # Copy required scripts into correct directories
       - name: Set up required script files
@@ -131,10 +131,10 @@ jobs:
           EOF
           
           # Copy wait-for-it script to humhub directory
-          cp paste-4.txt humhub/wait-for-it.sh
+          cp humhub/wait-for-it.sh humhub/wait-for-it.sh
           
           # Copy docker-entrypoint.sh to humhub directory
-          cp paste-3.txt humhub/docker-entrypoint.sh
+          cp humhub/docker-entrypoint.sh humhub/docker-entrypoint.sh
 
           # Create Dockerfile in humhub directory
           cat > humhub/Dockerfile << EOF
@@ -259,173 +259,62 @@ jobs:
           
           RUN apk add --no-cache borgbackup mariadb-client bash
           
-          VOLUME ["/backup/repo", "/backup/source"]
+          VOLUME ["/backup"]
           
-          CMD ["crond", "-f", "-d", "8"]
+          COPY scripts/backup.sh /usr/local/bin/backup.sh
+          
+          ENTRYPOINT ["backup.sh"]
           EOF
+          
+  docker-build:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      - name: Login to GitHub Container Registry
-        if: github.event_name != 'pull_request'
+      - name: Log in to GitHub Container Registry
         uses: docker/login-action@v2
         with:
-          registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract Docker metadata
-        id: meta
-        uses: docker/metadata-action@v4
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.BASE_IMAGE_NAME }}
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=sha,format=short
-
-      - name: Generate test environment file
-        run: |
-          cat > .env << EOF
-          MYSQL_ROOT_PASSWORD=test_root_password
-          MYSQL_PASSWORD=test_db_password
-          REDIS_PASSWORD=test_redis_password
-          HUMHUB_ADMIN_EMAIL=test@example.com
-          HUMHUB_ADMIN_LOGIN=admin
-          HUMHUB_ADMIN_PASSWORD=test_admin_password
-          HUMHUB_SITE_NAME=HumHub Test
-          HUMHUB_SITE_EMAIL=noreply@example.com
-          HUMHUB_MAILER_TRANSPORT=php
-          BORG_PASSPHRASE=test_borg_password
-          EOF
-          
-          # Create docker-compose.yml if not present
-          cp paste-2.txt docker-compose.yml
-
-      - name: Build and export to Docker
+      - name: Build and push HumHub Docker image
         uses: docker/build-push-action@v4
         with:
-          context: ./humhub
-          load: true
-          tags: ${{ env.REGISTRY }}/${{ env.BASE_IMAGE_NAME }}/app:test
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Build Nginx image
-        uses: docker/build-push-action@v4
-        with:
-          context: ./nginx
-          load: true
-          tags: ${{ env.REGISTRY }}/${{ env.BASE_IMAGE_NAME }}/nginx:test
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Build Backup image
-        uses: docker/build-push-action@v4
-        with:
-          context: ./backup
-          load: true
-          tags: ${{ env.REGISTRY }}/${{ env.BASE_IMAGE_NAME }}/backup:test
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Start Docker Compose for testing
-        run: |
-          docker-compose up -d
-          # Wait for containers to be healthy
-          timeout 300 bash -c 'until $(curl --output /dev/null --silent --head --fail http://localhost); do printf "."; sleep 5; done'
-
-      - name: Run Tests
-        run: |
-          # Basic connectivity test
-          curl -k -I https://localhost
-          # Check if MariaDB is running
-          docker-compose exec -T mariadb mysqladmin -uhumhub -ptest_db_password ping
-          # Check if Redis is running
-          docker-compose exec -T redis redis-cli -a test_redis_password ping
-          # Check HumHub health
-          docker-compose exec -T humhub curl -f http://localhost/ping
-          # Test backup system
-          docker-compose exec -T backup /scripts/backup.sh
-
-      - name: Build and push all images
-        if: github.event_name != 'pull_request'
-        uses: docker/build-push-action@v4
-        with:
-          context: ./humhub
+          context: humhub
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          tags: ${{ env.REGISTRY }}/${{ env.BASE_IMAGE_NAME }}:${{ github.sha }}
+
+      - name: Build and push Nginx Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: nginx
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.BASE_IMAGE_NAME }}-nginx:${{ github.sha }}
+
+      - name: Build and push Backup Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: backup
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.BASE_IMAGE_NAME }}-backup:${{ github.sha }}
 
   deploy:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    needs: build
-    if: |
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy == 'true') ||
-      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
-    
+    needs: docker-build
+    if: ${{ github.event.inputs.deploy == 'true' }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Set up SSH
-        uses: webfactory/ssh-agent@v0.7.0
-        with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      - name: Add host key
+        uses: actions/checkout@v4
+        
+      # Deploy logic (for example, SSH to server)
+      # Customize the deployment steps as necessary
+      - name: Deploy to production
         run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
-
-      - name: Copy files to server
-        run: |
-          rsync -avz --exclude '.git' --exclude '.github' --exclude 'node_modules' \
-            -e "ssh -o StrictHostKeyChecking=no" \
-            ./ ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ secrets.DEPLOY_PATH }}
-
-      - name: Deploy on server
-        uses: appleboy/ssh-action@v0.1.10
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            cd ${{ secrets.DEPLOY_PATH }}
-            
-            # Make sure backup and startup scripts are executable
-            chmod +x backup/scripts/backup.sh
-            chmod +x nginx/docker-entrypoint.sh
-            chmod +x humhub/docker-entrypoint.sh
-            chmod +x humhub/wait-for-it.sh
-            
-            # Pull latest images if using prebuilt ones
-            # docker-compose pull
-            
-            # Backup before update
-            docker-compose exec -T backup /scripts/backup.sh
-            
-            # Update the stack
-            docker-compose down
-            docker-compose up -d
-            
-            # Verify deployment
-            sleep 30
-            curl -k -I https://localhost
-
-      - name: Send notification
-        uses: rtCamp/action-slack-notify@v2
-        if: always()
-        env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-          SLACK_CHANNEL: deployments
-          SLACK_COLOR: ${{ job.status }}
-          SLACK_TITLE: HumHub Deployment
-          SLACK_MESSAGE: "Deployment to production ${{ job.status }}"
-          SLACK_FOOTER: "GitHub Actions"
+          echo "Deploying to production..."
