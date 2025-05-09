@@ -1,11 +1,11 @@
 #!/bin/bash
 set -e
 
-# Load configuration
+# shellcheck disable=SC1091
 source /etc/borg/borg.conf
 
 # Initialize variables
-BACKUP_DATE=$(date +%Y-%m-%d_%H-%M-%S)
+BACKUP_DATE="$(date +%Y-%m-%d_%H-%M-%S)"
 BACKUP_NAME="${BACKUP_PREFIX}_${BACKUP_DATE}"
 MYSQL_DUMP_FILE="/tmp/mysql_dump.sql"
 
@@ -19,9 +19,9 @@ fi
 
 # Create MySQL dump
 echo "Creating MySQL database dump..."
-mysqldump --host=${MYSQL_HOST} --user=${MYSQL_USER} \
-    --password=${MYSQL_PASSWORD} ${MYSQL_DATABASE} \
-    ${MYSQL_DUMP_OPTIONS} > ${MYSQL_DUMP_FILE}
+mysqldump --host="${MYSQL_HOST}" --user="${MYSQL_USER}" \
+    --password="${MYSQL_PASSWORD}" "${MYSQL_DATABASE}" \
+    ${MYSQL_DUMP_OPTIONS} > "${MYSQL_DUMP_FILE}"
 
 # Create backup
 echo "Creating Borg backup archive..."
@@ -30,14 +30,14 @@ borg create \
     --filter AME \
     --list \
     --stats \
-    --compression ${BORG_COMPRESSION} \
+    --compression "${BORG_COMPRESSION}" \
     --exclude-caches \
     "${BORG_REPO}::${BACKUP_NAME}" \
     "${BACKUP_SOURCES}" \
     "${MYSQL_DUMP_FILE}"
 
 # Remove MySQL dump file
-rm -f ${MYSQL_DUMP_FILE}
+rm -f "${MYSQL_DUMP_FILE}"
 
 # Prune old backups
 echo "Pruning old backups..."
