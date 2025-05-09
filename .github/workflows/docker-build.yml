@@ -19,7 +19,7 @@ on:
 
 env:
   REGISTRY: docker.io
-  BASE_IMAGE_NAME: ${{ github.repository_owner }}/humhub
+  BASE_IMAGE_NAME: archblood/humhub
   SHA: ${{ github.sha }}
 
 jobs:
