@@ -130,9 +130,6 @@ jobs:
           disable_functions = exec,passthru,shell_exec,system,proc_open,popen,curl_multi_exec,parse_ini_file,show_source
           EOF
 
-          # Copy docker-entrypoint.sh to humhub directory
-          cp humhub/docker-entrypoint.sh humhub/
-
           # Create Dockerfile in humhub directory
           cat > humhub/Dockerfile << EOF
           FROM php:8.2-fpm
