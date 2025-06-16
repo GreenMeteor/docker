@@ -1,8 +1,12 @@
 FROM php:8.2-fpm
 
+# Set shell with pipefail option
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 ARG HUMHUB_VERSION=1.17.2
 
 # Install dependencies
+# hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends --no-install-suggests \
     libzip-dev \
     libfreetype6-dev \
@@ -67,7 +71,7 @@ RUN set -ex && \
     fi && \
     echo "Found HumHub directory: $HUMHUB_DIR" && \
     mv "$HUMHUB_DIR"/* /var/www/html/ && \
-    mv "$HUMHUB_DIR"/.[^.]* /var/www/html/ 2>/dev/null || true && \
+    find "$HUMHUB_DIR" -name ".*" -not -name "." -not -name ".." -exec mv {} /var/www/html/ \; 2>/dev/null || true && \
     rmdir "$HUMHUB_DIR" && \
     echo "Creating ping file..." && \
     echo "<?php echo 'OK';" > /var/www/html/ping && \
