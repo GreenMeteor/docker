@@ -47,7 +47,7 @@ COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/wait-for-it /usr/local/bin/docker-entrypoint.sh
 
 # Download and verify HumHub
-RUN curl -fSL --retry 5 --retry-delay 5 https://download.humhub.com/downloads/install/humhub-${HUMHUB_VERSION}.zip -o humhub.zip && \
+RUN wget -q --show-progress --tries=5 --waitretry=5 -O humhub.zip https://download.humhub.com/downloads/install/humhub-${HUMHUB_VERSION}.zip && \
     file humhub.zip | grep -q 'Zip archive data' && \
     unzip humhub.zip -d /tmp/ && \
     rm humhub.zip && \
