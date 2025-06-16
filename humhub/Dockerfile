@@ -3,7 +3,6 @@ FROM php:8.2-fpm
 ARG HUMHUB_VERSION=1.17.2
 
 # Install dependencies
-# hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends --no-install-suggests \
     libzip-dev \
     libfreetype6-dev \
@@ -17,9 +16,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends --no-install-su
     unzip \
     gnupg \
     git \
+    file \
     libmagickwand-dev && \
     rm -rf /var/lib/apt/lists/* && \
-    # Install PHP extensions and PECL extensions
     docker-php-ext-configure gd --with-freetype --with-jpeg && \
     docker-php-ext-configure ldap --with-libdir=lib/x86_64-linux-gnu/ && \
     docker-php-ext-install -j"$(nproc)" \
@@ -48,13 +47,12 @@ COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/wait-for-it /usr/local/bin/docker-entrypoint.sh
 
 # Download and verify HumHub
-RUN curl -SL https://download.humhub.com/downloads/install/humhub-${HUMHUB_VERSION}.zip -o humhub.zip && \
+RUN curl -fSL --retry 5 --retry-delay 5 https://download.humhub.com/downloads/install/humhub-${HUMHUB_VERSION}.zip -o humhub.zip && \
+    file humhub.zip | grep -q 'Zip archive data' && \
     unzip humhub.zip -d /tmp/ && \
     rm humhub.zip && \
     mv /tmp/humhub-* /var/www/html && \
-    # Create health check script
     echo "<?php echo 'OK';" > /var/www/html/ping && \
-    # Set directory permissions
     chmod -R 755 /var/www/html && \
     find /var/www/html -type f -exec chmod 644 {} \; && \
     find /var/www/html -type d -exec chmod 755 {} \; && \
@@ -63,7 +61,6 @@ RUN curl -SL https://download.humhub.com/downloads/install/humhub-${HUMHUB_VERSI
                    /var/www/html/uploads \
                    /var/www/html/assets && \
     chown -R www-data:www-data /var/www/html && \
-    # Clean up unneeded test dirs
     rm -rf /var/www/html/protected/vendor/bower-asset/*/test \
            /var/www/html/protected/vendor/bower-asset/*/tests \
            /var/www/html/protected/vendor/*/test \
