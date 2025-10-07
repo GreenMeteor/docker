@@ -3,7 +3,7 @@ FROM php:8.3-fpm
 # Set shell with pipefail option
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-ARG HUMHUB_VERSION=1.17.2
+ARG HUMHUB_VERSION=1.18.0-beta.4
 
 # Install dependencies
 # hadolint ignore=DL3008
