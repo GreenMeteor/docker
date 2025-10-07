@@ -4,7 +4,7 @@ This repository contains a complete Docker setup for running a secure, productio
 
 ## Features
 
-- **HumHub**: Latest version (1.17.2) with PHP 8.2
+- **HumHub**: Latest version (1.18.0-beta.4) with PHP 8.3
 - **Security**: Hardened containers with minimal privileges and capabilities
 - **Database**: MariaDB 10.11 with secure configuration
 - **Caching**: Redis for improved performance
