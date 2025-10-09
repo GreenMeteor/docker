@@ -45,9 +45,9 @@ EOF
 
 # --- Dockerfile for HumHub ---
 cat > humhub/Dockerfile <<EOF
-FROM php:8.2-fpm
+FROM php:8.3-fpm
 
-ARG HUMHUB_VERSION=1.17.2
+ARG HUMHUB_VERSION=1.18.0-beta.4
 
 RUN apt-get update && apt-get install -y \\
     libzip-dev libfreetype6-dev libjpeg62-turbo-dev libpng-dev \\
